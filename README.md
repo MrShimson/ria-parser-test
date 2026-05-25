@@ -46,7 +46,10 @@ bin/console.php           ← CLI-точка входа для парсера (c
 src/
   Config/AppConfig        ← readonly-конфиг из env
   Bootstrap               ← создаёт PDO + Memcached + Logger
-  Controller/             ← разбор $_GET, ETag, оркестрация
+  Controller/             ← разбор $_GET → DTO, ETag, вызов UseCase, рендер
+  Application/
+    ListNewsUseCase       ← нормализация фильтров (даты, окно), вызов репозитория
+    ParseFeedHandler      ← оркестратор парсера: fetch → parse → upsert → invalidate
   Repository/
     NewsRepository        ← чистый SQL (PDO)
     CategoryRepository    ← upsert + loadMap + findActiveWithNews
@@ -55,11 +58,10 @@ src/
     CurlRssClient         ← HTTP через cURL, за RssClientInterface
     RssParser             ← SimpleXML → iterable<NewsItem>
     SlugExtractor         ← slug из URL-пути
-  Application/
-    ParseFeedHandler      ← оркестратор: fetch → parse → upsert → invalidate
   Cache/CacheVersion      ← версионирование Memcached-ключей
   Logger/StderrLogger     ← PSR-3 адаптер → php://stderr
-  Dto/                    ← NewsItem, NewsFilters, NewsPage, NewsRow
+  Dto/                    ← NewsItem, NewsRow, NewsFilters, NewsPage,
+                            ListNewsQuery, ListNewsResult
 
 templates/                ← PHP-шаблоны (Bootstrap 5, flatpickr)
 sql/
@@ -67,42 +69,16 @@ sql/
   02_test_db.sql          ← тестовая БД news_test
 ```
 
-**Слои:** Controller → CachedNewsRepository → NewsRepository.
-Контроллер не знает о кеше, NewsRepository не знает о Memcached.
+**Слои веба:** Controller → ListNewsUseCase → CachedNewsRepository → NewsRepository.
+Контроллер не знает о кеше; репозиторий не знает о Memcached; UseCase не знает о HTTP.
 
 ---
 
 ## Принятые компромиссы
 
-### Категории = slug из URL
-РИА не отдаёт настоящие рубрики в RSS: тег `<category>` всегда «Лента новостей», namespace-теги `rian:type`/`rian:priority` к рубрикам не относятся, рубричные фиды недоступны (404).
-
-Категория выводится из slug URL:
-```
-https://ria.ru/20260522/medvedev-2094017408.html → medvedev
-```
-
-В продакшне источником был бы рубричный фид или парсинг страницы новости.
-
-### Пагинация — LIMIT/OFFSET
-Для недельной выдачи (~500–2000 новостей) и первых десятков страниц `LIMIT/OFFSET` достаточен.
-
-Для больших датасетов оптимальна **keyset-пагинация**:
-```sql
-WHERE published_at < :cursor ORDER BY published_at DESC LIMIT 20
-```
-Цена O(1) вместо O(offset).
-
-### php -S вместо nginx + php-fpm
-Встроенный сервер — для демо. В продакшне: `nginx` + `php-fpm`, один рабочий процесс на запрос, корректная обработка статики.
-
-### Свой PSR-3 адаптер вместо Monolog
-`StderrLogger` (~30 строк) достаточен для CLI и одного потока вывода. Monolog добавил бы зависимость без практической пользы в рамках задания.
-
-### Кеш-инвалидация — версионирование, не flush_all
-`flush_all` сносит весь Memcached-инстанс (включая посторонние данные, в проде может быть отключён).
-Инкремент версии атомарен и меняет только префикс ключей этого приложения.
-
-### ETag на основе версии кеша
-Повторный запрос с `If-None-Match` → 304 Not Modified, PHP не считает данные.
-Предпочтительнее `Last-Modified`: версия уже готовый источник, не нужно отдельно хранить дату.
+- **Категории = slug из URL.** РИА не отдаёт рубрики в RSS; в проде — рубричный фид или парсинг страницы новости.
+- **Пагинация — `LIMIT/OFFSET`.** Для больших датасетов нужна keyset-пагинация (`WHERE published_at < :cursor`).
+- **`php -S` вместо nginx + php-fpm.** Только для демо.
+- **Свой PSR-3 адаптер вместо Monolog.** Хватает `StderrLogger` (~30 строк).
+- **Кеш-инвалидация — версионирование, не `flush_all`.** Не трогает посторонние ключи в Memcached.
+- **ETag на основе версии кеша.** `If-None-Match` → 304, без отдельного `Last-Modified`.
