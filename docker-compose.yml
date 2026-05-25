@@ -1,0 +1,49 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${DB_NAME:-news}
+      MYSQL_USER: ${DB_USER:-news}
+      MYSQL_PASSWORD: ${DB_PASS:-newspass}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  memcached:
+    image: memcached:alpine
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        UID: ${DOCKER_UID:-1000}
+        GID: ${DOCKER_GID:-1000}
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      memcached:
+        condition: service_started
+    command: php -S 0.0.0.0:8080 -t public/
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_NAME: ${DB_NAME:-news}
+      DB_NAME_TEST: news_test
+      DB_USER: ${DB_USER:-news}
+      DB_PASS: ${DB_PASS:-newspass}
+      MC_HOST: ${MC_HOST:-memcached}
+      MC_PORT: ${MC_PORT:-11211}
+      RSS_URL: ${RSS_URL:-https://ria.ru/export/rss2/archive/index.xml}
+
+volumes:
+  db_data:

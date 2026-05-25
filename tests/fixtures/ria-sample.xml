@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:rian="http://rian.ru/ns">
+  <channel>
+    <title>РИА Новости</title>
+    <link>https://ria.ru</link>
+    <description>Лента новостей</description>
+
+    <item>
+      <title>Медведев предупредил о рисках эскалации</title>
+      <link>https://ria.ru/20260522/medvedev-2094017408.html</link>
+      <description>Подробности в материале РИА Новости.</description>
+      <pubDate>Fri, 22 May 2026 13:25:21 +0300</pubDate>
+      <enclosure url="https://cdn.ria.ru/img/medvedev.jpg" type="image/jpeg" length="0"/>
+      <category>Лента новостей</category>
+    </item>
+
+    <item>
+      <title>Курс доллара вырос</title>
+      <link>https://ria.ru/20260522/dollar-2094017001.html</link>
+      <pubDate>Fri, 22 May 2026 12:00:00 +0300</pubDate>
+      <category>Лента новостей</category>
+    </item>
+
+    <item>
+      <title>Новости спорта</title>
+      <link>https://ria.ru/20260522/sport-2094016500.html</link>
+      <description><![CDATA[CDATA описание новости.]]></description>
+      <pubDate>Fri, 22 May 2026 10:30:00 +0000</pubDate>
+      <category>Лента новостей</category>
+    </item>
+
+  </channel>
+</rss>
