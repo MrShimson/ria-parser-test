@@ -5,7 +5,6 @@
 ## Быстрый старт
 
 ```bash
-cp .env.example .env
 make init          # сборка образов + запуск + composer install
 ```
 
